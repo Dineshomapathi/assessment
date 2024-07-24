@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AC Controller</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script>
+$(document).ready(function() {
+    function updateStatus() {
+        $.get('/status', function(data) {
+            $('#status').html(`Temperature: ${data.Setpoint / 100}°C, Fan: ${data.SysFan}, Mode: ${data.SysMode}, Power: ${data.SysOn ? 'Off' : 'On'}`);
+            // Re-enable the buttons after the status has been updated
+            $('button').prop('disabled', false);
+        });
+    }
+
+    function generateTempButtons() {
+        const tempContainer = $('#temp-buttons');
+        for (let temp = 15; temp <= 30; temp++) {
+            $('<button>')
+                .addClass('temp-button')
+                .text(`${temp}°C`)
+                .attr('data-type', 'SysSetpoint')
+                .attr('data-value', temp * 100)
+                .appendTo(tempContainer);
+        }
+    }
+
+    $(document).on('click', 'button', function() {
+        var type = $(this).data('type');
+        var value = $(this).data('value');
+        var payload = {};
+        payload[type] = value;
+
+        // Disable all buttons immediately after a command is sent
+        $('button').prop('disabled', true);
+
+        $.ajax({
+            url: '/control',
+            type: 'POST',
+            data: JSON.stringify(payload),
+            contentType: 'application/json',
+            success: function(response) {
+                console.log('Success:', response);
+                // Wait 5 seconds before updating the status to reflect changes
+                setTimeout(updateStatus, 5000);
+            },
+            error: function(xhr) {
+                console.error("Error:", xhr.statusText);
+                // If there's an error, re-enable the buttons immediately
+                $('button').prop('disabled', false);
+            }
+        });
+    });
+
+    updateStatus();
+    generateTempButtons();  // Generate temperature buttons dynamically
+});
+</script>
+</head>
+<body>
+<h1>AC Remote Control</h1>
+<h3>Please wait 5 second in between each request</h3>
+<div id="status"></div>
+<div>
+    <button data-type="SysOn" data-value="0">Turn ON</button>
+    <button data-type="SysOn" data-value="1">Turn OFF</button>
+    <button data-type="SysMode" data-value="1">Mode COOL</button>
+    <button data-type="SysMode" data-value="2">Mode HEAT</button>
+    <button data-type="SysMode" data-value="3">Mode VENT</button>
+    <button data-type="SysMode" data-value="4">Mode DRY</button>
+    <button data-type="SysFan" data-value="1">Fan LOW</button>
+    <button data-type="SysFan" data-value="2">Fan MEDIUM</button>
+    <button data-type="SysFan" data-value="3">Fan HIGH</button>
+    <button data-type="SysFan" data-value="4">Fan AUTO</button>
+</div>
+<br>
+<div id="temp-buttons"></div>
+</body>
+</html>
